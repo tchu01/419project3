@@ -1,8 +1,54 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "airport.h"
+
+#define EARTH_RADIUS 6371
+#define PI 3.14159265359   
+
+/*
+ * To do:
+ * 1) parse routes.dat; should we do this first? because we can exclude cities that have no flights listed in the routes database
+ *    essentially all we are getting from the airports.dat is the lat/long of the cities in the routes.dat file (maybe more)
+ *    - commonality between routes.dat and airports.dat = SOURCE AIRPORT ID (unique OpenFlights identifier for source airport)
+ *                                                      = DEST AIRPORT ID (unique OpenFlights identifier for dest airport)
+ *    - ask if there are any deadend flights (that only go to a city that has no outgoing flights)
+ * 
+ * 2) create the adj matrix for the direct graph
+ *    - when no flight between two cities... infinite weight
+ *    - airports in the same city... zero weight
+ *
+ * 3) algorithm
+ *    - choose lowest weight to any unvisited city
+ *    - if no flights to a unvisited city... find another city as transition that does have flight to the unvisited city
+ *
+ */
+
+double haversine(double lat1, double long1, double lat2, double long2) {
+   double dLat = (PI/180.0) * (lat2 - lat1);
+   double dLong = (PI/180.0) * (long2 - long1);
+   double a = sin(dLat/2) * sin(dLat/2) + cos(lat1) * cos(lat2) * sin(dLong/2) * sin(dLong/2);
+   double c = 2 * atan2(sqrt(a), sqrt(1-a));
+   double d = EARTH_RADIUS * c;
+   printf("%f\n", d);
+   return d;
+}
+
+void parseRoutes(char *fileName) {
+   //char buf[256];
+   //char *token;
+     
+   FILE *fp = fopen(fileName, "r");
+   
+   if (fp == NULL) {
+      printf("Error opening routes file");
+      exit(-1);
+   }
+
+   fclose(fp);
+}
 
 void parseAirports(char *fileName) {
    FILE *fp = fopen(fileName, "r");
@@ -51,12 +97,9 @@ void parseAirports(char *fileName) {
    fclose(fp);
 }
 
-
-
-
 int main(int argc, char **argv) {
 
   parseAirports("airports.dat");
-
+  //parseRoutes("routes.dat");
 
 }
