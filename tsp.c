@@ -36,10 +36,34 @@ double haversine(double lat1, double long1, double lat2, double long2) {
    return d;
 }
 
-void parseRoutes(char *fileName) {
-   //char buf[256];
-   //char *token;
-     
+void calcDistance(Airport a[10000], int count, int adj[][10000]) {
+   double lat1, lat2, long1, long2;
+   for(int i = 0; i < count; i++) {
+      for(int j = 0; j < count; j++) {
+         if(adj[i][j] == 1) {
+            lat1 = a[i].latitude;
+            lat2 = a[j].latitude;
+            long1 = a[i].longitude;
+            long2 = a[j].longitude;  
+            adj[i][j] = haversine(lat1, long1, lat2, long2);
+         }
+      }         
+   }
+   
+
+}
+
+void parseRoutes(int adj[][10000], char *fileName) {
+   char buf[256];
+   char *token;
+
+   //To do: check to make sure its all zeroed
+//   for(int i = 0; i < 10000; i++) {
+//      for(int j = 0; j < 10000; j++) {
+//         adj[i][j] = 0;
+//      }
+//   }
+
    FILE *fp = fopen(fileName, "r");
    
    if (fp == NULL) {
@@ -47,14 +71,31 @@ void parseRoutes(char *fileName) {
       exit(-1);
    }
 
+   while(fgets(buf, sizeof(buf), fp)) {
+      token = strtok(buf, ",");
+      //pull 4th and 6th items for source and dest airline ID
+
+      strtok(NULL, ",");
+      strtok(NULL, ",");
+      
+      //source
+      int src = strtol(strtok(NULL, ","), (char **)NULL, 10);
+      strtok(NULL, ",");
+      int dest = strtol(strtok(NULL, ","), (char **)NULL, 10);
+      printf("source: %d, dest: %d\n", src, dest);
+
+      if(src - 1 >= 0 || dest - 1 >= 0) {
+         adj[src - 1][dest - 1] = 1;
+      }
+      
+   }
    fclose(fp);
 }
 
-void parseAirports(char *fileName) {
+int parseAirports(Airport **allAirport, char *fileName) {
    FILE *fp = fopen(fileName, "r");
    char buf[256];
    char *token;
-   Airport *allAirport = malloc(sizeof(Airport) * 10000);
    int cnt = 0;
 
    if(fp == NULL) {
@@ -76,30 +117,31 @@ void parseAirports(char *fileName) {
 		   strtol(strtok(NULL, ","), (char **)NULL, 10),
 		   strtok(NULL, ",")};
 
-	      allAirport[cnt] = a;
-	      cnt++;
+	   (*allAirport)[cnt] = a;
+	   cnt++;
    }
 
    printf ("\n\n\nnumber of airports = %d\n",cnt);
 
    for (int i = 0; i < cnt; i++) {
 	   printf ("\n=========================================\n");
-	   printf ("id = %d\n",allAirport[i].airportID);
-	   printf ("name = %s\n",allAirport[i].name);
-	   printf ("city = %s\n",allAirport[i].city);
-	   printf ("country = %s\n",allAirport[i].country);
-	   printf ("airport code = %s\n",allAirport[i].airportCode);
-	   printf ("lat = %lf\n",allAirport[i].latitude);
-	   printf ("long = %lf\n",allAirport[i].longitude);
+	   printf ("id = %d\n",(*allAirport[i]).airportID);
+	   printf ("name = %s\n",(*allAirport[i]).name);
+	   printf ("city = %s\n",(*allAirport[i]).city);
+	   printf ("country = %s\n",(*allAirport[i]).country);
+	   printf ("airport code = %s\n",(*allAirport[i]).airportCode);
+	   printf ("lat = %lf\n",(*allAirport[i]).latitude);
+	   printf ("long = %lf\n",(*allAirport[i]).longitude);
    }
-
-
    fclose(fp);
+   return cnt;
 }
 
 int main(int argc, char **argv) {
-
-  parseAirports("airports.dat");
-  //parseRoutes("routes.dat");
+  Airport *a = malloc(sizeof(Airport) * 10000);
+  int adj[10000][10000];
+  int count = parseAirports(&a, "airports.dat");
+  //parseRoutes(adj, "routes1.dat");
+  //calcDistance(a, count, adj);
 
 }
