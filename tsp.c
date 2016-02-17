@@ -53,7 +53,7 @@ void calcDistance(Airport a[10000], int count, int adj[][10000]) {
 
 }
 
-void parseRoutes(int adj[][10000], char *fileName) {
+void parseRoutes(int adj[][1000], char *fileName) {
    char buf[256];
    char *token;
 
@@ -103,6 +103,7 @@ int parseAirports(Airport **allAirport, char *fileName) {
       exit(-1);
    }
 
+   //issue: airport ID might not match up with index in a
    while(fgets(buf, sizeof(buf), fp)) {
       token = strtok(buf, ",");
 
@@ -119,19 +120,21 @@ int parseAirports(Airport **allAirport, char *fileName) {
 
 	   (*allAirport)[cnt] = a;
 	   cnt++;
+      
+      printf("id: %d\n", a.airportID);
    }
 
    printf ("\n\n\nnumber of airports = %d\n",cnt);
 
    for (int i = 0; i < cnt; i++) {
 	   printf ("\n=========================================\n");
-	   printf ("id = %d\n",(*allAirport[i]).airportID);
-	   printf ("name = %s\n",(*allAirport[i]).name);
-	   printf ("city = %s\n",(*allAirport[i]).city);
-	   printf ("country = %s\n",(*allAirport[i]).country);
-	   printf ("airport code = %s\n",(*allAirport[i]).airportCode);
-	   printf ("lat = %lf\n",(*allAirport[i]).latitude);
-	   printf ("long = %lf\n",(*allAirport[i]).longitude);
+	   printf ("id = %d\n",(*allAirport)[i].airportID);
+	   printf ("name = %s\n",(*allAirport)[i].name);
+	   printf ("city = %s\n",(*allAirport)[i].city);
+	   printf ("country = %s\n",(*allAirport)[i].country);
+	   printf ("airport code = %s\n",(*allAirport)[i].airportCode);
+	   printf ("lat = %lf\n",(*allAirport)[i].latitude);
+	   printf ("long = %lf\n",(*allAirport)[i].longitude);
    }
    fclose(fp);
    return cnt;
@@ -139,9 +142,13 @@ int parseAirports(Airport **allAirport, char *fileName) {
 
 int main(int argc, char **argv) {
   Airport *a = malloc(sizeof(Airport) * 10000);
-  int adj[10000][10000];
+  if (a == NULL) {
+   printf("broke\n");
+}
+  int adj[1000][1000];
+  printf("hi\n");
   int count = parseAirports(&a, "airports.dat");
-  //parseRoutes(adj, "routes1.dat");
+  parseRoutes(adj, "routes1.dat");
   //calcDistance(a, count, adj);
 
 }
