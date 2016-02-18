@@ -3,12 +3,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "airportcpp.h"
 
 using namespace std;
 
+#define R 6371
+#define TO_RAD (3.1415926536 / 180)
+double haversine(double th1, double ph1, double th2, double ph2)
+{
+   #pragma omp parallel
+   double dx, dy, dz;
+   ph1 -= ph2;
+   ph1 *= TO_RAD, th1 *= TO_RAD, th2 *= TO_RAD;
 
+   dz = sin(th1) - sin(th2);
+   dx = cos(ph1) * cos(th1) - cos(th2);
+   dy = sin(ph1) * cos(th1);
+   return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * R;
+}
+
+void parseRoutes(map<string, map<string, double> >& mat, string fileName,
+		 map<string, Airport> alist) {
+   char buf[256];
+   char *token;
+   string src, dest;
+
+   FILE *fp = fopen(fileName.c_str(), "r");
+
+   if (fp == NULL) {
+      printf("Error opening routes file");
+      exit(-1);
+   }
+
+   while(fgets(buf, sizeof(buf), fp)) {
+      token = strtok(buf, ",");
+      //pull 4th and 6th items for source and dest airline ID
+
+      strtok(NULL, ",");
+
+      //source
+      src = strtok(NULL, ",");
+      strtok(NULL, ",");
+      dest = strtok(NULL, ",");
+
+      // Haversine math here
+      mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
+				 alist[dest].latitude, alist[dest].longitude);
+
+      cout << "src = " + src + " dest = " + dest << " dist = " << mat[src][dest] <<"\n";
+   }
+   fclose(fp);
+}
 
 int parseAirports(string fileName, map<string, Airport>& alist) {
    FILE *fp = fopen(fileName.c_str(), "r");
@@ -56,7 +103,7 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
 
       alist[airportCode] = a;
       cnt++;
-      cout << alist[airportCode].name + "\n";
+      //cout << alist[airportCode].name + "\n";
       // printf("id: %s\n", (*alist)[airportCode].name);
    }
 
@@ -69,13 +116,17 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
 int main(int argc, char *argv[])
 {
    std::map<string, Airport> airportList;
-
-
+   map<string, map<string, double> > adjM;
    int count = parseAirports("airports.dat", airportList);
 
-   cout << "ariport = " + airportList["GKA"].name + "\n";
+
+   //cout << "ariport = " + airportList["GKA"].name + "\n";
+
+
+   parseRoutes(adjM, "routes.dat", airportList);
 
    // printf("lat = %s\n", airportList["GKA"].name);
 
+   cout << "dist = " << adjM["SFO"]["SBP"] << "\n";
    return 0;
 }
