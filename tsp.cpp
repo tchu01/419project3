@@ -24,6 +24,17 @@ double haversine(double th1, double ph1, double th2, double ph2)
    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * R;
 }
 
+/**
+ * parseRoutes - parses the routes in the route.dat file and
+ * calculates the distance between the ariports
+ *
+ * IN: mat - Adjacency matrix that contains the
+ * distance. mat[src][dest] where src is the starting airport and dest
+ * is the destination.
+ * IN: fileName - name of the routes file
+ * IN: alist - list of all the airports that is used to find the
+ * coorindates of the airport in the routes file.
+ */
 void parseRoutes(map<string, map<string, double> >& mat, string fileName,
 		 map<string, Airport> alist) {
    char buf[256];
@@ -57,6 +68,14 @@ void parseRoutes(map<string, map<string, double> >& mat, string fileName,
    fclose(fp);
 }
 
+/**
+ * parseAirport - parses the airport file
+ *
+ * IN: filename - name of the airport file to parse
+ * IN: alist - hashmap of the airport and its airport code. Key is the
+ * airport code and the airport struct is the airport data.
+ *
+ */
 int parseAirports(string fileName, map<string, Airport>& alist) {
    FILE *fp = fopen(fileName.c_str(), "r");
    char buf[256];
@@ -80,6 +99,8 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
       country = strdup(strtok(NULL, ",\""));
       airportCode = strdup(strtok(NULL, ","));
 
+      // Skip airports that do not have an airport code since there
+      // will be no reference in the routes file
       if (!airportCode.compare("\"\"")) { // No airport code
 	 continue;
       }
@@ -127,6 +148,6 @@ int main(int argc, char *argv[])
 
    // printf("lat = %s\n", airportList["GKA"].name);
 
-   cout << "dist = " << adjM["SFO"]["SBP"] << "\n";
+   cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
    return 0;
 }
