@@ -5,7 +5,7 @@ SRC=tsp.c
 ifdef CPP
 CC=g++
 SRC=tsp.cpp
-CFLAGS= -lstdc++
+CFLAGS= -g -lstdc++
 endif
 
 default: tsp.c
