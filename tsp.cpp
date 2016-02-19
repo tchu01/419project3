@@ -26,12 +26,12 @@ double haversine(double th1, double ph1, double th2, double ph2)
 
 void calculateDistances(map<string, map<string, double> >& mat, map<string, Airport> alist) {
    //int i = 0;
-//#pragma omp parallel for 
+//#pragma omp parallel for
    for (map<string, map<string, double> >::iterator oIter = mat.begin(); oIter != mat.end(); oIter++) {
       //printf("%d\n", i++);
       cout << oIter->first << "\n";
       for(map<string, double>::iterator iIter = (oIter->second).begin(); iIter != (oIter->second).end(); iIter++) {
-         cout << "   " << iIter->first << ", " << iIter->second << "\n";
+	 cout << "   " << iIter->first << ", " << iIter->second << "\n";
       }
    }
 }
@@ -47,11 +47,15 @@ void calculateDistances(map<string, map<string, double> >& mat, map<string, Airp
  * IN: alist - list of all the airports that is used to find the
  * coorindates of the airport in the routes file.
  */
-void parseRoutes(map<string, map<string, double> >& mat, string fileName,
+void parseRoutes(double **mat, string fileName, string *adj2Ap,
 		 map<string, Airport> alist) {
    char buf[256];
    char *token;
    string src, dest;
+   int srcInx = 0, destInx = 0;
+   int apSrc = 0, apDest = 0;
+   map<string, int> lookup;
+   int apCnt = 0, lkuCnt = 0;;
 
    FILE *fp = fopen(fileName.c_str(), "r");
 
@@ -67,16 +71,40 @@ void parseRoutes(map<string, map<string, double> >& mat, string fileName,
       strtok(NULL, ",");
       dest = strtok(NULL, ",");
 
-      // Haversine math here ~ real: 0.149 seconds 
+
+
+      if (!lookup.count(src)) {
+	 lookup[src] = lkuCnt;
+	 adj2Ap[apCnt++] = src;
+	 apSrc = lkuCnt++;
+      }
+      else {
+	 apSrc = lookup[src];
+      }
+
+      if (!lookup.count(dest)) {
+	 lookup[dest] = lkuCnt;
+	 adj2Ap[apCnt++] = dest;
+	 apDest = lkuCnt++;
+      }
+      else {
+	 apDest = lookup[dest];
+      }
+
+      mat[apSrc][apSrc] = 0;
+      mat[apSrc][apDest] = 1;
+      mat[apDest][apDest] = 0;
+
+      // Haversine math here ~ real: 0.149 seconds
       //mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
 		//		 alist[dest].latitude, alist[dest].longitude);
 
       //if no mat use... ~ real: 0.044 seconds
 
       // 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
-      mat[src][dest] = 1;
-      mat[src][src] = 0;
-      mat[dest][dest] = 0;
+      // mat[src][dest] = 1;
+      // mat[src][src] = 0;
+      // mat[dest][dest] = 0;
 
       //cout << "src = " + src + " dest = " + dest << " dist = " << mat[src][dest] <<"\n";
    }
@@ -145,16 +173,43 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
    return cnt;
 }
 
+void printMat (double **mat, int cnt) {
+
+   for (int i = 0; i < cnt; i++) {
+      cout <<i<<" : ";
+      for (int j = 0; j < cnt; j++) {
+	 cout<<mat[i][j]<< " ";
+      }
+      cout<<"\n\n";
+   }
+
+}
 
 int main(int argc, char *argv[])
 {
    std::map<string, Airport> airportList;
-   map<string, map<string, double> > adjM;
+
    int count = parseAirports("airports.dat", airportList);
-   //cout << "airport = " + airportList["GKA"].name + "\n";
-   parseRoutes(adjM, "routes.dat", airportList);
+   string adjMatToAp[count];
+
+   // Construct 2d array for adjacency matrix
+   double **adjMat = (double **)malloc(sizeof(double*) *count);
+   for (int i = 0; i < count; i++) {
+      adjMat[i] = (double *)malloc(sizeof(double) * count);
+   }
+
+
+
+   parseRoutes(adjMat, "routes1.dat", adjMatToAp, airportList);
+
+   for (int j = 0; j < 20; j++ ) {
+      cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
+   }
+
+   printMat(adjMat, 20);
+
    //printf("lat = %s\n", airportList["GKA"].name);
    //cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
-   calculateDistances(adjM, airportList);
+   //calculateDistances(adjM, airportList);
    return 0;
 }
