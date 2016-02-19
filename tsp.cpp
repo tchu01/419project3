@@ -24,14 +24,17 @@ double haversine(double th1, double ph1, double th2, double ph2)
    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * R;
 }
 
-void calculateDistances(map<string, map<string, double> >& mat, map<string, Airport> alist) {
-   //int i = 0;
-//#pragma omp parallel for
-   for (map<string, map<string, double> >::iterator oIter = mat.begin(); oIter != mat.end(); oIter++) {
-      //printf("%d\n", i++);
-      cout << oIter->first << "\n";
-      for(map<string, double>::iterator iIter = (oIter->second).begin(); iIter != (oIter->second).end(); iIter++) {
-	 cout << "   " << iIter->first << ", " << iIter->second << "\n";
+void calculateDistances(double ** mat, int count, string *adj2Ap,
+			map<string, Airport> alist) {
+
+   for (int i = 0; i < count; i++) {
+      for (int j = 0; j < count; j++) {
+	 if (mat[i][j] == 1) {
+	    mat[i][j] = haversine(alist[adj2Ap[i]].latitude,
+				  alist[adj2Ap[i]].longitude,
+				  alist[adj2Ap[j]].latitude,
+				  alist[adj2Ap[j]].longitude);
+	 }
       }
    }
 }
@@ -47,7 +50,7 @@ void calculateDistances(map<string, map<string, double> >& mat, map<string, Airp
  * IN: alist - list of all the airports that is used to find the
  * coorindates of the airport in the routes file.
  */
-void parseRoutes(double **mat, string fileName, string *adj2Ap,
+int parseRoutes(double **mat, string fileName, string *adj2Ap,
 		 map<string, Airport> alist) {
    char buf[256];
    char *token;
@@ -55,7 +58,8 @@ void parseRoutes(double **mat, string fileName, string *adj2Ap,
    int srcInx = 0, destInx = 0;
    int apSrc = 0, apDest = 0;
    map<string, int> lookup;
-   int apCnt = 0, lkuCnt = 0;;
+   int apCnt = 0, lkuCnt = 0;
+   int totAp = 0;
 
    FILE *fp = fopen(fileName.c_str(), "r");
 
@@ -72,28 +76,28 @@ void parseRoutes(double **mat, string fileName, string *adj2Ap,
       dest = strtok(NULL, ",");
 
 
-
-      if (!lookup.count(src)) {
+      // determine if airport is on the adj matrix
+      if (!lookup.count(src)) { // does not find src airport
 	 lookup[src] = lkuCnt;
 	 adj2Ap[apCnt++] = src;
 	 apSrc = lkuCnt++;
+	 totAp++;
       }
       else {
 	 apSrc = lookup[src];
       }
 
-      if (!lookup.count(dest)) {
+      if (!lookup.count(dest)) { // does not find dest airport
 	 lookup[dest] = lkuCnt;
 	 adj2Ap[apCnt++] = dest;
 	 apDest = lkuCnt++;
+	 totAp++;
       }
       else {
 	 apDest = lookup[dest];
       }
 
-      mat[apSrc][apSrc] = 0;
       mat[apSrc][apDest] = 1;
-      mat[apDest][apDest] = 0;
 
       // Haversine math here ~ real: 0.149 seconds
       //mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
@@ -102,13 +106,10 @@ void parseRoutes(double **mat, string fileName, string *adj2Ap,
       //if no mat use... ~ real: 0.044 seconds
 
       // 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
-      // mat[src][dest] = 1;
-      // mat[src][src] = 0;
-      // mat[dest][dest] = 0;
-
-      //cout << "src = " + src + " dest = " + dest << " dist = " << mat[src][dest] <<"\n";
    }
    fclose(fp);
+
+   return totAp;
 }
 
 /**
@@ -193,23 +194,25 @@ int main(int argc, char *argv[])
    string adjMatToAp[count];
 
    // Construct 2d array for adjacency matrix
-   double **adjMat = (double **)malloc(sizeof(double*) *count);
+   double **adjMat = (double **)calloc(sizeof(double*), count);
    for (int i = 0; i < count; i++) {
-      adjMat[i] = (double *)malloc(sizeof(double) * count);
+      adjMat[i] = (double *)calloc(sizeof(double), count);
    }
 
 
 
-   parseRoutes(adjMat, "routes1.dat", adjMatToAp, airportList);
+   int totalApRoutes = parseRoutes(adjMat, "routes.dat", adjMatToAp, airportList);
 
-   for (int j = 0; j < 20; j++ ) {
-      cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
-   }
+   // for (int j = 0; j < 20; j++ ) {
+   //    cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
+   // }
 
-   printMat(adjMat, 20);
+
+   //printMat(adjMat, 20);
 
    //printf("lat = %s\n", airportList["GKA"].name);
    //cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
-   //calculateDistances(adjM, airportList);
+   calculateDistances(adjMat, totalApRoutes, adjMatToAp, airportList);
+   //printMat(adjMat, 20);
    return 0;
 }
