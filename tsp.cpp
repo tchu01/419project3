@@ -1,5 +1,5 @@
 #include <iostream>
-#include<map>
+#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,9 +11,9 @@ using namespace std;
 
 #define R 6371
 #define TO_RAD (3.1415926536 / 180)
+
 double haversine(double th1, double ph1, double th2, double ph2)
 {
-   #pragma omp parallel
    double dx, dy, dz;
    ph1 -= ph2;
    ph1 *= TO_RAD, th1 *= TO_RAD, th2 *= TO_RAD;
@@ -22,6 +22,18 @@ double haversine(double th1, double ph1, double th2, double ph2)
    dx = cos(ph1) * cos(th1) - cos(th2);
    dy = sin(ph1) * cos(th1);
    return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * R;
+}
+
+void calculateDistances(map<string, map<string, double> >& mat, map<string, Airport> alist) {
+   //int i = 0;
+//#pragma omp parallel for 
+   for (map<string, map<string, double> >::iterator oIter = mat.begin(); oIter != mat.end(); oIter++) {
+      //printf("%d\n", i++);
+      cout << oIter->first << "\n";
+      for(map<string, double>::iterator iIter = (oIter->second).begin(); iIter != (oIter->second).end(); iIter++) {
+         cout << "   " << iIter->first << ", " << iIter->second << "\n";
+      }
+   }
 }
 
 /**
@@ -50,20 +62,23 @@ void parseRoutes(map<string, map<string, double> >& mat, string fileName,
 
    while(fgets(buf, sizeof(buf), fp)) {
       token = strtok(buf, ",");
-      //pull 4th and 6th items for source and dest airline ID
-
       strtok(NULL, ",");
-
-      //source
       src = strtok(NULL, ",");
       strtok(NULL, ",");
       dest = strtok(NULL, ",");
 
-      // Haversine math here
-      mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
-				 alist[dest].latitude, alist[dest].longitude);
+      // Haversine math here ~ real: 0.149 seconds 
+      //mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
+		//		 alist[dest].latitude, alist[dest].longitude);
 
-      cout << "src = " + src + " dest = " + dest << " dist = " << mat[src][dest] <<"\n";
+      //if no mat use... ~ real: 0.044 seconds
+
+      // 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
+      mat[src][dest] = 1;
+      mat[src][src] = 0;
+      mat[dest][dest] = 0;
+
+      //cout << "src = " + src + " dest = " + dest << " dist = " << mat[src][dest] <<"\n";
    }
    fclose(fp);
 }
@@ -91,7 +106,6 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
       exit(-1);
    }
 
-   //issue: airport ID might not match up with index in a
    while(fgets(buf, sizeof(buf), fp)) {
       id = strtol(strtok(buf, ",\""), (char **)NULL, 10);
       name = strdup(strtok(NULL, ",\""));
@@ -102,11 +116,11 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
       // Skip airports that do not have an airport code since there
       // will be no reference in the routes file
       if (!airportCode.compare("\"\"")) { // No airport code
-	 continue;
+	      continue;
       }
       else {
-	 airportCode = airportCode.substr(1, airportCode.length()-2);
-	 //cout << "new code = " + airportCode + "\n";
+	      airportCode = airportCode.substr(1, airportCode.length()-2);
+	      //cout << "new code = " + airportCode + "\n";
       }
 
       ICAO = strdup(strtok(NULL, ","));
@@ -117,15 +131,13 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
       DST = *(strtok(NULL, ","));
       tzDB = strdup(strtok(NULL, ","));
 
-
       Airport a = {id, name, city, country, airportCode, ICAO, latit, longit,
 		   altit, timezone, DST, tzDB};
-
 
       alist[airportCode] = a;
       cnt++;
       //cout << alist[airportCode].name + "\n";
-      // printf("id: %s\n", (*alist)[airportCode].name);
+      //printf("id: %s\n", (*alist)[airportCode].name);
    }
 
    printf ("\n\n\nnumber of airports = %d\n",cnt);
@@ -139,15 +151,10 @@ int main(int argc, char *argv[])
    std::map<string, Airport> airportList;
    map<string, map<string, double> > adjM;
    int count = parseAirports("airports.dat", airportList);
-
-
-   //cout << "ariport = " + airportList["GKA"].name + "\n";
-
-
+   //cout << "airport = " + airportList["GKA"].name + "\n";
    parseRoutes(adjM, "routes.dat", airportList);
-
-   // printf("lat = %s\n", airportList["GKA"].name);
-
-   cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
+   //printf("lat = %s\n", airportList["GKA"].name);
+   //cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
+   calculateDistances(adjM, airportList);
    return 0;
 }
