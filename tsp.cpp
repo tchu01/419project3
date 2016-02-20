@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include<set>
+
 
 #include "airportcpp.h"
 
@@ -39,6 +41,42 @@ void calculateDistances(double ** mat, int count, string *adj2Ap,
    }
 }
 
+void tsp(double **mat, int matrixLen, string *adj2Ap,
+		 map<string, Airport> alist, map<string, int> lookup,
+		 set<string> &allCities) {
+
+		//set<string> visited;
+	int cur = lookup["SBP"];
+	allCities.erase(alist[adj2Ap[cur]].city);
+	cout << "cur = "<< cur << "\n";
+	double distance = 0;
+	double tmpDist = 99999;
+	int tmpLoc = 0;
+
+	while (!allCities.empty()) {
+			tmpDist = 99999;
+			tmpLoc = 0;
+			for (int i = 0; i < matrixLen; i++) {
+					if (allCities.count(alist[adj2Ap[i]].city)) {
+							if (tmpDist > mat[cur][i] && mat[cur][i] > 0) {
+									tmpDist = mat[cur][i];
+									tmpLoc = i;
+							}
+					}
+			}
+			
+
+			cout << "AP = " << adj2Ap[tmpLoc] << "\n";
+			distance += tmpDist;
+			cur = tmpLoc;
+			allCities.erase(alist[adj2Ap[tmpLoc]].city);
+	}
+
+
+
+}
+
+
 /**
  * parseRoutes - parses the routes in the route.dat file and
  * calculates the distance between the ariports
@@ -51,65 +89,67 @@ void calculateDistances(double ** mat, int count, string *adj2Ap,
  * coorindates of the airport in the routes file.
  */
 int parseRoutes(double **mat, string fileName, string *adj2Ap,
-		 map<string, Airport> alist) {
-   char buf[256];
-   char *token;
-   string src, dest;
-   int srcInx = 0, destInx = 0;
-   int apSrc = 0, apDest = 0;
-   map<string, int> lookup;
-   int apCnt = 0, lkuCnt = 0;
-   int totAp = 0;
+				map<string, Airport> alist, set<string>& cities,
+				map<string, int>& lookup) {
+		char buf[256];
+		char *token;
+		string src, dest;
+		int srcInx = 0, destInx = 0;
+		int apSrc = 0, apDest = 0;
+		int apCnt = 0, lkuCnt = 0;
+		int totAp = 0;
 
-   FILE *fp = fopen(fileName.c_str(), "r");
+		FILE *fp = fopen(fileName.c_str(), "r");
 
-   if (fp == NULL) {
-      printf("Error opening routes file");
-      exit(-1);
-   }
+		if (fp == NULL) {
+				printf("Error opening routes file");
+				exit(-1);
+		}
 
-   while(fgets(buf, sizeof(buf), fp)) {
-      token = strtok(buf, ",");
-      strtok(NULL, ",");
-      src = strtok(NULL, ",");
-      strtok(NULL, ",");
-      dest = strtok(NULL, ",");
+		while(fgets(buf, sizeof(buf), fp)) {
+				token = strtok(buf, ",");
+				strtok(NULL, ",");
+				src = strtok(NULL, ",");
+				strtok(NULL, ",");
+				dest = strtok(NULL, ",");
 
+				cities.insert(alist[src].city);
+				cities.insert(alist[dest].city);
 
-      // determine if airport is on the adj matrix
-      if (!lookup.count(src)) { // does not find src airport
-	 lookup[src] = lkuCnt;
-	 adj2Ap[apCnt++] = src;
-	 apSrc = lkuCnt++;
-	 totAp++;
-      }
-      else {
-	 apSrc = lookup[src];
-      }
+				// determine if airport is on the adj matrix
+				if (!lookup.count(src)) { // does not find src airport
+						lookup[src] = lkuCnt;
+						adj2Ap[apCnt++] = src;
+						apSrc = lkuCnt++;
+						totAp++;
+				}
+				else {
+						apSrc = lookup[src];
+				}
 
-      if (!lookup.count(dest)) { // does not find dest airport
-	 lookup[dest] = lkuCnt;
-	 adj2Ap[apCnt++] = dest;
-	 apDest = lkuCnt++;
-	 totAp++;
-      }
-      else {
-	 apDest = lookup[dest];
-      }
+				if (!lookup.count(dest)) { // does not find dest airport
+						lookup[dest] = lkuCnt;
+						adj2Ap[apCnt++] = dest;
+						apDest = lkuCnt++;
+						totAp++;
+				}
+				else {
+						apDest = lookup[dest];
+				}
 
-      mat[apSrc][apDest] = 1;
+				mat[apSrc][apDest] = 1;
 
-      // Haversine math here ~ real: 0.149 seconds
-      //mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
-		//		 alist[dest].latitude, alist[dest].longitude);
+				// Haversine math here ~ real: 0.149 seconds
+				//mat[src][dest] = haversine(alist[src].latitude, alist[src].longitude,
+				//		 alist[dest].latitude, alist[dest].longitude);
 
-      //if no mat use... ~ real: 0.044 seconds
+				//if no mat use... ~ real: 0.044 seconds
 
-      // 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
-   }
-   fclose(fp);
+				// 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
+		}
+		fclose(fp);
 
-   return totAp;
+		return totAp;
 }
 
 /**
@@ -189,6 +229,8 @@ void printMat (double **mat, int cnt) {
 int main(int argc, char *argv[])
 {
    std::map<string, Airport> airportList;
+   set<string> cities;
+   map<string, int> lookup;
 
    int count = parseAirports("airports.dat", airportList);
    string adjMatToAp[count];
@@ -200,19 +242,21 @@ int main(int argc, char *argv[])
    }
 
 
+   int totalApRoutes = parseRoutes(adjMat, "routes.dat", adjMatToAp,
+								   airportList, cities, lookup);
 
-   int totalApRoutes = parseRoutes(adjMat, "routes.dat", adjMatToAp, airportList);
-
-   // for (int j = 0; j < 20; j++ ) {
-   //    cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
-   // }
+   for (int j = 0; j < 20; j++ ) {
+      cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
+   }
 
 
-   //printMat(adjMat, 20);
+   printMat(adjMat, 4);
 
    //printf("lat = %s\n", airportList["GKA"].name);
    //cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
    calculateDistances(adjMat, totalApRoutes, adjMatToAp, airportList);
-   //printMat(adjMat, 20);
+   printMat(adjMat, 20);
+   tsp(adjMat, totalApRoutes, adjMatToAp, airportList, lookup, cities);
+
    return 0;
 }
