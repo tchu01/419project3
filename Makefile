@@ -3,9 +3,9 @@ TARGET=tsp
 CFLAGS=-Wall -g -std=c99 -O2 -D_GNU_SOURCE -lm
 SRC=tsp.c
 ifdef CPP
-CC=g++
+CC=icc
 SRC=tsp.cpp
-CFLAGS= -g -lstdc++
+CFLAGS= -g -lstdc++ -qopenmp
 endif
 
 default: tsp.c
