@@ -18,3 +18,10 @@ struct Airport {
    char DST;
    string tzDB;
  };
+
+struct Coordinates {
+   double *latitude;
+   double *longitude;
+   int *visitCounter;
+   set<string> visitedAirports;
+};
