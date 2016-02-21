@@ -1,0 +1,6 @@
+CPE 419 Project 3
+Timothy Chu (tchu01)
+Nathan Yee (nhyee)
+
+To compile: call "make"
+To run program: call "partsp <airport.dat file> <routes.dat file>"

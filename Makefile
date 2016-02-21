@@ -1,12 +1,7 @@
-CC=gcc
-TARGET=tsp
-CFLAGS=-Wall -g -std=c99 -O2 -D_GNU_SOURCE -lm
-SRC=tsp.c
-ifdef CPP
+TARGET=partsp
 CC=icc
 SRC=tsp.cpp
-CFLAGS= -g -lstdc++ -qopenmp
-endif
+CFLAGS= -g -w -lstdc++ -qopenmp
 
 default: tsp.c
 	$(CC) -o $(TARGET) $(CFLAGS) $(SRC)

@@ -1,16 +1,18 @@
 #include <iostream>
 #include <map>
+#include <set>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <set>
 
 #include "airportcpp.h"
 
 using namespace std;
 
 #define R 6371
+#define CIRCUM 41000
 #define TO_RAD (3.1415926536 / 180)
 __attribute__((target(mic)))
 double haversine(double th1, double ph1, double th2, double ph2)
@@ -29,9 +31,11 @@ void calculateDistances(double ** mat, int matrixLen, string *adj2Ap,
 			struct Coordinates coordinate) {
    double *tmpLat = coordinate.latitude;
    double *tmpLong = coordinate.longitude;
+//note: see report (error we could not find solution to)
 //#pragma offload target(mic) inout (mat: length(matrixLen)) in (matrixLen) in (tmpLat: length(matrixLen)) in (tmpLong: length(matrixLen))
 #pragma omp parallel for
    for (int i = 0; i < matrixLen; i++) {
+#pragma omp simd
       for (int j = 0; j < matrixLen; j++) {
          //check to see if there is a flight
 	      if (mat[i][j] == 1) {
@@ -47,27 +51,35 @@ void calculateDistances(double ** mat, int matrixLen, string *adj2Ap,
    }
 }
 
+/*
+ * adj2AP - pass index to get Airport Code
+ * lookup - pass Airport code to get index
+ * aList - pass Airport Code to get Airport data
+ * allCities - set of cities needed to visit
+ */
 void tsp(double **mat, int matrixLen, string *adj2Ap,
 		 map<string, Airport> alist, map<string, int> lookup,
 		 set<string> &allCities, struct Coordinates *coordinate) {
-   //adj2AP - pass index to get Airport Code
-   //lookup - pass Airport code to get index
-   //aList - pass Airport Code to get Airport data
-   //allCities - set of cities needed to visit
-   
+   FILE *fp = fopen("result.csv", "w");
+   if(!fp) {
+      printf("There was an error creating and writing to result.csv\n");
+      exit(-1);
+   } else {
+       fprintf(fp, "City,Airport Code,Trip Distance(km), Total Distance(km)\n");
+   }
+
    // Starting at SLO
 	int cur = lookup["SBP"];
 	allCities.erase(alist[adj2Ap[cur]].city);
    coordinate->visitedAirports.erase(adj2Ap[cur]);
-
-	cout << "cur = "<< cur << "\n";
+   fprintf(fp, "San Luis Obispo,SBP,0,0\n");
 
 	double distance = 0;
 	double tmpDist = 99999;
 	int tmpLoc = 0;
 
-   // Condition to end: visited all cities
-   // Greedy approach: travel to "closest: airport that is not in same city
+   // Condition to finish: visited all cities
+   // Greedy approach: travel to closest airport that is not in same city
 	while (!allCities.empty()) {
 			tmpDist = 99999;
 			tmpLoc = -1;
@@ -76,42 +88,58 @@ void tsp(double **mat, int matrixLen, string *adj2Ap,
 			for (int i = 0; i < matrixLen; i++) {
 					if (allCities.count(alist[adj2Ap[i]].city)) {
 							if (tmpDist > mat[cur][i] && mat[cur][i] > 0) {
-                           cout << "possible AP = " << adj2Ap[i] << "\n";
+                           //cout << "   possible AP = " << adj2Ap[i] << "\n";
 									tmpDist = mat[cur][i];
 									tmpLoc = i;
 							}
 					}
 			}
-         // NOTE: can use local approach as well if time permits
          
          // Greedy alg has hit deadend... no airports to fly to from current 
          // whose city has not been visited 
 			if(tmpLoc == -1) {
+            string dst;
+            // check that there are airports we have not visited
             if (coordinate->visitedAirports.size() != 0) {
-               set<string>::iterator iter = coordinate->visitedAirports.begin();
-               string dst = *iter;
+               // go through all those airports
+               for(set<string>::iterator iter = coordinate->visitedAirports.begin(); iter != coordinate->visitedAirports.end(); iter++) {
+                  // Find airport to city we have NOT visited
+                  if(allCities.count(alist[*iter].city) == 1) { 
+                     dst = *iter;
+                     break;
+                  }
+               }
                tmpLoc = lookup[dst]; 
-               tmpDist = haversine(alist[adj2Ap[cur]].latitude, alist[adj2Ap[cur]].longitude, alist[dst].latitude, alist[dst].longitude);
+               if((alist[adj2Ap[cur]].city).compare(alist[dst].city) == 0) {
+                  //cout << "   TRAVELING TO SAME CITY =========\n";
+                  tmpDist = 0;
+               } else {
+                  tmpDist = haversine(alist[adj2Ap[cur]].latitude, alist[adj2Ap[cur]].longitude, alist[dst].latitude, alist[dst].longitude);
+               }
             }    
          }
 
-			cout << "AP = " << adj2Ap[tmpLoc] << "\n";
+			//cout << "AP = " << adj2Ap[tmpLoc] << "\n";
 			distance += tmpDist;
 			cur = tmpLoc;
          coordinate->visitedAirports.erase(adj2Ap[tmpLoc]);
 			allCities.erase(alist[adj2Ap[tmpLoc]].city);
+         fprintf(fp, "%s,%s,%lf,%lf\n", alist[adj2Ap[tmpLoc]].city, adj2Ap[tmpLoc], tmpDist, distance);
 	}
-   cout << "total distance: " << distance << "\n"; 
-   // Djikstra's back to SBP
+   //cout << "total distance: " << distance << "\n"; 
 
-   distance += haversine(alist[adj2Ap[cur]].latitude, alist[adj2Ap[cur]].longitude, alist["SBP"].latitude, alist["SBP"].longitude);
-
+   // Fly back to SLO
+   tmpDist = haversine(alist[adj2Ap[cur]].latitude, alist[adj2Ap[cur]].longitude, alist["SBP"].latitude, alist["SBP"].longitude);
+   distance += tmpDist;
+   fprintf(fp, "San Luis Obispo,SBP,%lf,%lf\n", tmpDist, distance);
+   fclose(fp);
 }
 
 void populateCoordinates(struct Coordinates *coordinates, map<string, Airport> airportList, string *adjMatToAp, int matrixLen) {
    coordinates->latitude = (double *) calloc(sizeof(double), matrixLen);
    coordinates->longitude = (double *) calloc(sizeof(double), matrixLen);
    coordinates->visitCounter = (int *) calloc(sizeof(int), matrixLen);
+
 #pragma omp parallel for
    for (int i = 0; i < matrixLen; i++) {
       coordinates->latitude[i] = airportList[adjMatToAp[i]].latitude;
@@ -158,7 +186,7 @@ int parseRoutes(double **mat, string fileName, string *adj2Ap,
 				cities.insert(alist[src].city);
 				cities.insert(alist[dest].city);
 
-				// determine if airport is on the adj matrix
+				// Determine if airport is on the adj matrix
 				if (!lookup.count(src)) { // does not find src airport
 						lookup[src] = lkuCnt;
 						adj2Ap[apCnt++] = src;
@@ -169,7 +197,6 @@ int parseRoutes(double **mat, string fileName, string *adj2Ap,
 				else {
 						apSrc = lookup[src];
 				}
-
 				if (!lookup.count(dest)) { // does not find dest airport
 						lookup[dest] = lkuCnt;
 						adj2Ap[apCnt++] = dest;
@@ -180,7 +207,6 @@ int parseRoutes(double **mat, string fileName, string *adj2Ap,
 				else {
 						apDest = lookup[dest];
 				}
-
 				mat[apSrc][apDest] = 1;
 
 				// Haversine math here ~ real: 0.149 seconds
@@ -192,7 +218,6 @@ int parseRoutes(double **mat, string fileName, string *adj2Ap,
 				// 2/18 - Tim... just doing this, without calculation of haversine... ~ real: 0.120 seconds
 		}
 		fclose(fp);
-
 		return totAp;
 }
 
@@ -252,14 +277,12 @@ int parseAirports(string fileName, map<string, Airport>& alist) {
       //cout << alist[airportCode].name + "\n";
       //printf("id: %s\n", (*alist)[airportCode].name);
    }
-
-   printf ("\nnumber of airports with airport code inside airports.dat = %d\n",cnt);
+   //printf ("\nNumber of airports with airport codes inside airports.dat = %d\n",cnt);
    fclose(fp);
    return cnt;
 }
 
 void printMat (double **mat, int cnt) {
-
    for (int i = 0; i < cnt; i++) {
       cout <<i<<" : ";
       for (int j = 0; j < cnt; j++) {
@@ -267,7 +290,6 @@ void printMat (double **mat, int cnt) {
       }
       cout<<"\n\n";
    }
-
 }
 
 int main(int argc, char *argv[])
@@ -277,7 +299,9 @@ int main(int argc, char *argv[])
    map<string, int> lookup;
    struct Coordinates coordinates; 
 
-   int count = parseAirports("airports.dat", airportList);
+   // Parse ariports and routes file
+   int count = parseAirports(argv[1], airportList);
+
    string adjMatToAp[count];
 
    // Construct 2d array for adjacency matrix
@@ -286,20 +310,16 @@ int main(int argc, char *argv[])
       adjMat[i] = (double *)calloc(sizeof(double), count);
    }
 
-   int totalApRoutes = parseRoutes(adjMat, "routes.dat", adjMatToAp,
+   int totalApRoutes = parseRoutes(adjMat, argv[2], adjMatToAp,
 								   airportList, cities, lookup, &coordinates);
    populateCoordinates(&coordinates, airportList, adjMatToAp, totalApRoutes);
-   //printf("phx: lat = %lf, long = %lf\n", coordinates.latitude[0], coordinates.longitude[0]);
 
-   for (int j = 0; j < 20; j++ ) {
-      cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
-   }
+   //for (int j = 0; j < 20; j++ ) {
+   //   cout << "ariport " <<j <<" = " << adjMatToAp[j] << "\n";
+   //}
 
-   //printMat(adjMat, 4);
-   //printf("lat = %s\n", airportList["GKA"].name);
-   //cout << "dist = " << adjM["SFO"]["HKG"] << "\n";
    calculateDistances(adjMat, totalApRoutes, adjMatToAp, coordinates);
-   printMat(adjMat, 10);
+   //printMat(adjMat, 10);
    tsp(adjMat, totalApRoutes, adjMatToAp, airportList, lookup, cities, &coordinates);
 
    return 0;
